@@ -4,8 +4,8 @@ const getBaseURL = () => {
   let url = import.meta.env.VITE_API_URL;
   if (!url) return "/api/v1";
   
-  // Remove trailing slash if present
-  url = url.replace(/\/$/, "");
+  // Remove all trailing slashes and clean up double slashes in the path
+  url = url.replace(/\/+$/, "");
   
   return url.endsWith("/api/v1") ? url : `${url}/api/v1`;
 };
