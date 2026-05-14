@@ -4,7 +4,9 @@ import dotenv from 'dotenv';
 import adminRoutes from './routes/adminRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
 
-dotenv.config({ path: '../.env' });
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config({ path: '../.env' });
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +31,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Admin Backend Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Admin Backend Server running on port ${PORT}`);
+  });
+}
+
+export default app;
