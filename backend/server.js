@@ -3,9 +3,14 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import adminRoutes from './routes/adminRoutes.js';
 import transactionRoutes from './routes/transactionRoutes.js';
+import reconciliationRoutes from './routes/reconciliationRoutes.js';
+import fraudRoutes from './routes/fraudRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
+import configRoutes from './routes/configRoutes.js';
 
 if (process.env.NODE_ENV !== 'production') {
-  dotenv.config({ path: '../.env' });
+  dotenv.config();
 }
 
 const app = express();
@@ -29,6 +34,11 @@ app.use(express.json());
 // Routes
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/transactions', transactionRoutes);
+app.use('/api/v1/reconciliation', reconciliationRoutes);
+app.use('/api/v1/fraud', fraudRoutes);
+app.use('/api/v1/reports', reportRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/config', configRoutes);
 
 
 // Health Check

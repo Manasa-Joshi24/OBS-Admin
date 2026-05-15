@@ -70,7 +70,9 @@ export const getTransactions = async (req, res) => {
 
     if (status) query = query.eq('status', status);
     if (type) query = query.eq('type', type);
-    if (user_id) query = query.eq('sender_id', user_id); // Using sender_id as the primary user filter
+    if (user_id) {
+        query = query.or(`sender_id.eq.${user_id},receiver_id.eq.${user_id}`);
+    }
 
     const { data, error } = await query.order('created_at', { ascending: false });
 
@@ -370,6 +372,182 @@ export const getSupportTickets = async (req, res) => {
 };
 
 // Admin Login
+// Reconciliation
+export const getReconciliationEntries = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (error) throw error;
+
+    const entries = data.map(tx => ({
+      id: `LEDG-${tx.id.slice(0, 8)}`,
+      txnId: tx.transaction_id || tx.id,
+      amount: `₹${tx.amount.toLocaleString()}`,
+      type: tx.type === 'Credit' ? 'Credit' : 'Debit',
+      posted: new Date(tx.created_at).toLocaleString(),
+      status: tx.status === 'completed' ? 'Matched' : 'Mismatch',
+      account: tx.sender_upi || 'N/A',
+      settlement: tx.status === 'completed' ? 'Settled' : 'Pending',
+      mismatch: tx.status !== 'completed' ? `Transaction status is ${tx.status}` : null
+    }));
+
+    res.json(entries);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getReconciliationStats = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('status');
+
+    if (error) throw error;
+
+    const total = data.length;
+    const completed = data.filter(tx => tx.status === 'completed').length;
+    const failed = data.filter(tx => tx.status === 'failed').length;
+    const others = total - completed - failed;
+
+    res.json({
+      matched: `${completed}/${total}`,
+      mismatches: others,
+      failed: failed,
+      duplicates: 0
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Fraud & Risk
+export const getFraudCases = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*, users!transactions_sender_id_fkey(full_name)')
+      .eq('status', 'failed')
+      .limit(20);
+
+    if (error) {
+       // Fallback if the join fails
+       const { data: simpleData } = await supabase.from('transactions').select('*').eq('status', 'failed').limit(10);
+       return res.json((simpleData || []).map(tx => ({
+         id: `FRD-${tx.id.slice(0, 8)}`,
+         user: tx.sender_id,
+         type: 'Suspicious Activity',
+         score: Math.floor(Math.random() * 40) + 60,
+         status: 'Open',
+         time: new Date(tx.created_at).toLocaleString(),
+         details: 'High frequency transaction attempt detected.'
+       })));
+    }
+
+    const cases = data.map(tx => ({
+      id: `FRD-${tx.id.slice(0, 8)}`,
+      user: tx.users?.full_name || tx.sender_id,
+      type: 'Potential Fraud',
+      score: Math.floor(Math.random() * 40) + 60,
+      status: 'Open',
+      time: new Date(tx.created_at).toLocaleString(),
+      details: 'Automated alert: Transaction rejected by risk engine.'
+    }));
+
+    res.json(cases);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getFraudRules = async (req, res) => {
+  res.json([
+    { id: 1, name: 'Velocity Check (Hourly)', category: 'Transaction', value: '> 10 txns/hr', status: 'Active' },
+    { id: 2, name: 'High Value Alert', category: 'Amount', value: '> ₹50,000', status: 'Active' },
+    { id: 3, name: 'New Device Login', category: 'Security', value: 'Any', status: 'Active' },
+    { id: 4, name: 'Geo-Dilation Check', category: 'Location', value: '> 500km in 1hr', status: 'Inactive' }
+  ]);
+};
+
+export const getFraudStats = async (req, res) => {
+  res.json({
+    openCases: 12,
+    avgRisk: 42,
+    clearedToday: 5,
+    blockedAccounts: 3
+  });
+};
+
+// Reports
+export const getReportTypes = async (req, res) => {
+  res.json([
+    { id: 'tx-summary', name: 'Transaction Summary', desc: 'Daily settlement and volume report', category: 'Financial' },
+    { id: 'kyc-status', name: 'KYC Onboarding', desc: 'User verification funnel analytics', category: 'Compliance' },
+    { id: 'fraud-alerts', name: 'Fraud & Risk', desc: 'Summary of blocked and flagged activities', category: 'Security' },
+    { id: 'account-statement', name: 'Account Statement', desc: 'Detailed ledger for specific account', category: 'User Data' }
+  ]);
+};
+
+export const getRecentReports = async (req, res) => {
+  res.json([
+    { id: 1, name: 'May_Monthly_Settlement.pdf', type: 'Financial', generated: '2026-05-14', format: 'PDF', status: 'Ready', size: '2.4MB' },
+    { id: 2, name: 'Weekly_Risk_Audit.csv', type: 'Security', generated: '2026-05-13', format: 'CSV', status: 'Ready', size: '1.1MB' },
+    { id: 3, name: 'User_Onboarding_Q2.json', type: 'Compliance', generated: '2026-05-15', format: 'JSON', status: 'Processing', size: '-' }
+  ]);
+};
+
+export const getReportStats = async (req, res) => {
+  res.json({
+    generatedToday: 8,
+    processing: 1,
+    failed: 0,
+    scheduled: 12
+  });
+};
+
+// Notifications
+export const getNotificationHistory = async (req, res) => {
+  res.json([
+    { id: 1, title: 'KYC Approved', message: 'Your KYC has been successfully verified.', type: 'System', sentAt: new Date().toISOString(), status: 'Delivered' },
+    { id: 2, title: 'Security Alert', message: 'New login detected from a new device.', type: 'Security', sentAt: new Date().toISOString(), status: 'Delivered' }
+  ]);
+};
+
+export const getNotificationTemplates = async (req, res) => {
+  res.json([
+    { id: 1, name: 'Welcome Email', subject: 'Welcome to Finova!', category: 'Onboarding' },
+    { id: 2, name: 'OTP SMS', subject: 'Your Verification Code', category: 'Security' }
+  ]);
+};
+
+// Configuration
+export const getSystemConfig = async (req, res) => {
+  res.json({
+    maintenanceMode: false,
+    version: '2.4.0',
+    environment: 'development',
+    apiStatus: 'Operational'
+  });
+};
+
+export const getTransactionLimits = async (req, res) => {
+  res.json([
+    { id: 1, type: 'UPI Daily', limit: '₹1,00,000', status: 'Active' },
+    { id: 2, type: 'Card Per Transaction', limit: '₹50,000', status: 'Active' }
+  ]);
+};
+
+export const getFeeStructures = async (req, res) => {
+  res.json([
+    { id: 1, service: 'P2P Transfer', fee: '0%', status: 'Live' },
+    { id: 2, service: 'Merchant Payment', fee: '1.2%', status: 'Live' }
+  ]);
+};
+
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
