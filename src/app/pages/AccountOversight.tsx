@@ -76,12 +76,32 @@ export function AccountOversight() {
     setIsModalOpen(true);
   };
 
-  const confirmAction = () => {
+  const confirmAction = async () => {
+    if (modalAction.accountIds.length > 0) {
+      let statusToSet = "";
+      if (modalAction.type === "freeze") statusToSet = "frozen";
+      else if (modalAction.type === "unfreeze") statusToSet = "active";
+      else if (modalAction.type === "review") statusToSet = "under review";
+
+      if (statusToSet) {
+        // We use the first ID for simplicity or loop if needed. 
+        // The store currently supports one at a time.
+        for (const id of modalAction.accountIds) {
+          const acc = accounts.find(a => a.id === id);
+          if (acc?.user_id) {
+            await useAdminStore.getState().updateUserStatus(acc.user_id, statusToSet);
+          }
+        }
+      }
+    }
     setIsModalOpen(false);
+    setSelectedIds([]);
   };
 
   const handleAddNote = () => {
     if (!newNote.trim() || !selectedAcc) return;
+    console.log("Adding note for account:", selectedAcc.id, newNote);
+    // In a real app, this would call an API
     setNewNote("");
   };
 

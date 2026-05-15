@@ -112,9 +112,28 @@ export function SupportTicketing() {
                 />
               </div>
               <div className="space-y-2">
-                <button className="w-full py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium">Send Response</button>
+                <button 
+                  onClick={() => {
+                    console.log("Sending response to ticket:", selected.id, noteText);
+                    setNoteText("");
+                  }} 
+                  className="w-full py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium"
+                >
+                  Send Response
+                </button>
                 {selected.status !== "closed" && (
-                  <button className="w-full py-2 text-sm rounded-lg border border-green-200 text-green-700 hover:bg-green-50 font-medium">Mark Resolved</button>
+                  <button 
+                    onClick={async () => {
+                       // We should ideally have a store method for this, 
+                       // but for now we can use a direct call if needed or mock it.
+                       console.log("Marking ticket as resolved:", selected.id);
+                       // After resolution, we might want to refresh
+                       fetchSupportTickets();
+                    }}
+                    className="w-full py-2 text-sm rounded-lg border border-green-200 text-green-700 hover:bg-green-50 font-medium"
+                  >
+                    Mark Resolved
+                  </button>
                 )}
               </div>
             </div>
