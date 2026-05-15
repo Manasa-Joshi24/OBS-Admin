@@ -1,13 +1,22 @@
 import axios from "axios";
 
 const getBaseURL = () => {
-  let url = import.meta.env.VITE_API_URL;
+  const url = import.meta.env.VITE_API_URL;
+  const isProd = import.meta.env.PROD;
+
+  // In production, if the URL is localhost or not set, use relative path
+  if (isProd) {
+    if (!url || url.includes("localhost")) {
+      return "/api/v1";
+    }
+  }
+
   if (!url) return "/api/v1";
   
   // Remove all trailing slashes and clean up double slashes in the path
-  url = url.replace(/\/+$/, "");
+  const cleanedUrl = url.replace(/\/+$/, "");
   
-  return url.endsWith("/api/v1") ? url : `${url}/api/v1`;
+  return cleanedUrl.endsWith("/api/v1") ? cleanedUrl : `${cleanedUrl}/api/v1`;
 };
 
 const api = axios.create({
