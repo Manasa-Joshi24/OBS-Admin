@@ -11,15 +11,16 @@ import { StatCardSkeleton, Skeleton } from "../components/Skeleton";
 import { useAdminStore } from "../store/adminStore";
 
 export function Dashboard() {
-  const { transactions, analytics, chartData, loading, fetchTransactions, fetchAnalytics, fetchChartData } = useAdminStore();
+  const { transactions, analytics, chartData, loading, fetchSortedTransactions, fetchFraudAnalysis, fetchAnalytics, fetchChartData } = useAdminStore();
   const [chartFilter, setChartFilter] = useState<"daily" | "weekly" | "monthly">("weekly");
   const [alertFilter, setAlertFilter] = useState<"All" | "Fraud" | "System" | "KYC">("All");
 
   useEffect(() => {
-    fetchTransactions();
+    fetchSortedTransactions();
+    fetchFraudAnalysis();
     fetchAnalytics();
     fetchChartData();
-  }, [fetchTransactions, fetchAnalytics, fetchChartData]);
+  }, [fetchSortedTransactions, fetchFraudAnalysis, fetchAnalytics, fetchChartData]);
 
   return (
     <div className="space-y-6">
@@ -96,42 +97,59 @@ export function Dashboard() {
               </div>
               <span className="text-sm font-bold text-gray-800">{analytics?.pendingKyc ?? 0}</span>
             </div>
-            <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 border border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                  <ShieldAlert size={16} />
+
+            {/* Fraud Detection Panel (Graph DFS O(V+E)) */}
+            <div className="flex flex-col p-3 rounded-lg bg-gray-50 border border-gray-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-white ${analytics?.fraudData?.suspicious_cycles?.length > 0 ? "bg-red-500" : "bg-emerald-500"}`}>
+                    <ShieldAlert size={16} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Fraud Detection</p>
+                    <p className="text-xs text-gray-400">Circular transfer analysis</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">Fraud Flags</p>
-                  <p className="text-xs text-gray-400">Suspicious activities</p>
-                </div>
+                <Badge label={analytics?.fraudData?.suspicious_cycles?.length > 0 ? "Alert" : "Clean"} variant={analytics?.fraudData?.suspicious_cycles?.length > 0 ? "warning" : "success"} />
               </div>
-              <span className="text-sm font-bold text-gray-800">{analytics?.securityFlags ?? 0}</span>
+              
+              {analytics?.fraudData?.suspicious_cycles?.length > 0 ? (
+                <div className="space-y-1 mt-2">
+                  <p className="text-xs font-bold text-red-600">{analytics.fraudData.suspicious_cycles.length} cycles detected:</p>
+                  {analytics.fraudData.suspicious_cycles.slice(0, 2).map((cycle: string[], i: number) => (
+                    <div key={i} className="text-[10px] text-gray-600 truncate bg-white p-1 rounded border border-gray-200">
+                      {cycle.join(' → ')}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-emerald-600 mt-1 font-medium pb-1">No circular transfers detected.</p>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Recent Transactions */}
+      {/* Recent Transactions (Merge Sorted O(n log n)) */}
       <div className="bg-white rounded-xl border border-gray-200 p-4">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-800">Recent Activity</h3>
+          <h3 className="font-semibold text-gray-800">Recent Activity (Sorted Feed)</h3>
           <button className="text-xs text-blue-600 font-medium">View All</button>
         </div>
         <div className="space-y-3">
-          {(Array.isArray(transactions) ? transactions : []).slice(0, 5).map((tx: any) => (
-            <div key={tx.transaction_id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
+          {(Array.isArray(transactions) ? transactions : []).slice(0, 10).map((tx: any) => (
+            <div key={tx.transaction_id || tx.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 transition-colors">
               <div className="flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${tx.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                   {tx.sender?.charAt(0) || 'U'}
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-800">{tx.sender}</p>
-                  <p className="text-xs text-gray-400">{new Date(tx.timestamp).toLocaleString()}</p>
+                  <p className="text-xs text-gray-400">{new Date(tx.timestamp || tx.created_at).toLocaleString()}</p>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-gray-800">₹{tx.amount.toLocaleString()}</p>
+                <p className="text-sm font-bold text-gray-800">₹{tx.amount?.toLocaleString()}</p>
                 <Badge label={tx.status} variant={tx.status === 'completed' ? 'success' : 'warning'} />
               </div>
             </div>
