@@ -8,6 +8,7 @@ import fraudRoutes from './routes/fraudRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import configRoutes from './routes/configRoutes.js';
+import optimizationRoutes from './routes/optimization.routes.js';
 
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config();
@@ -39,6 +40,7 @@ app.use('/api/v1/fraud', fraudRoutes);
 app.use('/api/v1/reports', reportRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/config', configRoutes);
+app.use('/api/v1/optimization', optimizationRoutes);
 
 
 // Health Check

@@ -18,11 +18,13 @@ interface AdminState {
   setSearchQuery: (query: string) => void;
   fetchUsers: (params?: any) => Promise<void>;
   fetchTransactions: (params?: any) => Promise<void>;
+  fetchSortedTransactions: () => Promise<void>;
   fetchAccounts: () => Promise<void>;
-  fetchCards: () => Promise<void>;
+  fetchCards: (params?: any) => Promise<void>;
   fetchLoans: () => Promise<void>;
   fetchAuditLogs: () => Promise<void>;
   fetchSupportTickets: (params?: any) => Promise<void>;
+  fetchFraudAnalysis: () => Promise<void>;
   fetchAnalytics: () => Promise<void>;
   fetchChartData: () => Promise<void>;
   updateUserStatus: (userId: string, status: string) => Promise<void>;
@@ -66,6 +68,27 @@ export const useAdminStore = create<AdminState>((set, get) => ({
       set({ transactions: Array.isArray(data) ? data : [], loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false, transactions: [] });
+    }
+  },
+
+  fetchSortedTransactions: async () => {
+    set({ loading: true });
+    try {
+      const response = await api.get('/optimization/sort');
+      const data = response.data.data || response.data;
+      set({ transactions: Array.isArray(data) ? data : [], loading: false });
+    } catch (error: any) {
+      set({ error: error.message, loading: false, transactions: [] });
+    }
+  },
+
+  fetchFraudAnalysis: async () => {
+    try {
+      const response = await api.get('/optimization/fraud');
+      const data = response.data.data || response.data;
+      set({ analytics: { ...get().analytics, fraudData: data } });
+    } catch (error: any) {
+      console.error("Error fetching fraud data:", error.message);
     }
   },
 
@@ -129,7 +152,7 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     try {
       const response = await api.get('/admin/analytics');
       const data = response.data.data || response.data;
-      set({ analytics: data, loading: false });
+      set({ analytics: { ...get().analytics, ...data }, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }
@@ -184,8 +207,9 @@ export const useAdminStore = create<AdminState>((set, get) => ({
     const txChannel = supabase
       .channel(`public:transactions:${subId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => {
-        get().fetchTransactions();
+        get().fetchSortedTransactions();
         get().fetchAnalytics();
+        get().fetchFraudAnalysis();
       })
       .subscribe();
 
